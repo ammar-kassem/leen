@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#06020a">
+  <meta name="color-scheme" content="dark">
+  <title>For Leen</title>
+  <style>
+    /* ==========================================================================
+   For Leen — styles
+   Palette: ink black, deep burgundy, warm rose, champagne gold
+   ========================================================================== */
+
+:root {
+  --ink: #06020a;
+  --burgundy: #4a0f26;
+  --rose: #ff8fab;
+  --gold: #f2c27b;
+  --head-x: 50vw;   /* updated from JS so the glow sits behind the bloom */
+  --head-y: 34vh;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--ink);
+  overflow: hidden;
+}
+
+body {
+  color: #fff;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* soft vignette to pull the eye to the centre */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 55%, rgba(2, 0, 4, .72) 100%);
+}
+
+/* --------------------------------------------------------------------------
+   Ambient glow — fades up slowly once the sequence begins
+   -------------------------------------------------------------------------- */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 5s ease-in-out;
+}
+.glow.on    { opacity: 1; }
+.glow.reset { transition: none; }
+
+.glow::before {
+  content: "";
+  position: absolute;
+  inset: -6%;
+  background:
+    radial-gradient(ellipse 46% 34% at var(--head-x) var(--head-y), rgba(255, 150, 175, .22), transparent 70%),
+    radial-gradient(ellipse 70% 52% at var(--head-x) var(--head-y), rgba(150, 30, 70, .42), transparent 72%),
+    radial-gradient(ellipse 30% 22% at var(--head-x) calc(var(--head-y) + 4vh), rgba(242, 194, 123, .17), transparent 70%),
+    radial-gradient(ellipse 90% 38% at 50% 100%, rgba(105, 18, 48, .34), transparent 72%);
+  animation: breathe 9s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes breathe {
+  from { transform: scale(1);    opacity: .86; }
+  to   { transform: scale(1.06); opacity: 1;   }
+}
+
+#motes {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Scene layout — flower above, message below, always centred
+   -------------------------------------------------------------------------- */
+.scene {
+  position: relative;
+  z-index: 2;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(2px, 1vh, 12px);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 18px);
+  transition: opacity .9s ease;
+}
+.scene.fading { opacity: 0; transition: none; }
+
+.flower-wrap {
+  height: min(63vh, 660px);
+  height: min(63dvh, 660px);
+  aspect-ratio: 400 / 560;
+  max-width: 100vw;
+  flex: none;
+}
+
+.text-wrap {
+  height: min(21vh, 150px);
+  height: min(21dvh, 150px);
+  aspect-ratio: 500 / 164;
+  max-width: 94vw;
+  flex: none;
+}
+
+.flower-wrap svg,
+.text-wrap svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* --------------------------------------------------------------------------
+   Heart — a gentle heartbeat once the message is complete
+   -------------------------------------------------------------------------- */
+.heart {
+  transform-box: fill-box;
+  transform-origin: 50% 58%;
+  filter: drop-shadow(0 0 5px rgba(255, 60, 110, .65));
+}
+.is-alive .heart { animation: heartbeat 2.8s ease-in-out infinite; }
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 4px rgba(255, 60, 110, .55)); }
+  12%      { transform: scale(1.09); filter: drop-shadow(0 0 11px rgba(255, 70, 120, .95)); }
+  24%      { transform: scale(1);    filter: drop-shadow(0 0 5px rgba(255, 60, 110, .6)); }
+  38%      { transform: scale(1.06); filter: drop-shadow(0 0 9px rgba(255, 70, 120, .85)); }
+  52%      { transform: scale(1);    filter: drop-shadow(0 0 4px rgba(255, 60, 110, .55)); }
+}
+
+/* --------------------------------------------------------------------------
+   Replay button
+   -------------------------------------------------------------------------- */
+.replay {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  margin-left: -20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 205, 220, .22);
+  background: rgba(255, 255, 255, .035);
+  color: rgba(255, 222, 232, .8);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 1.4s ease, transform 1.4s ease, visibility 0s linear 1.4s,
+              background .3s ease, border-color .3s ease, color .3s ease;
+}
+.is-done .replay {
+  opacity: .72;
+  visibility: visible;
+  transform: none;
+  transition: opacity 1.4s ease, transform 1.4s ease, visibility 0s,
+              background .3s ease, border-color .3s ease, color .3s ease;
+}
+.is-done .replay:hover,
+.is-done .replay:focus-visible {
+  opacity: 1;
+  background: rgba(255, 143, 171, .14);
+  border-color: rgba(255, 190, 208, .5);
+  color: #fff;
+}
+.replay:focus-visible { outline: 2px solid var(--rose); outline-offset: 3px; }
+.replay:active { transform: scale(.94); }
+.replay svg.spin { animation: spin .7s cubic-bezier(.4, 0, .2, 1); }
+
+@keyframes spin { to { transform: rotate(-360deg); } }
+
+/* --------------------------------------------------------------------------
+   Reduced motion — show the finished gift, no continuous movement
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .glow            { transition: none; }
+  .glow::before    { animation: none; }
+  .is-alive .heart { animation: none; }
+  .replay svg.spin { animation: none; }
+  .replay          { transition: none; }
+}
+
+@media (max-height: 420px) and (orientation: landscape) {
+  .scene { gap: 0; padding-bottom: 8px; }
+}
+
+  </style>
+</head>
+<body>
+
+  <!-- ambient layers -->
+  <div class="glow" id="glow" aria-hidden="true"></div>
+  <canvas id="motes" aria-hidden="true"></canvas>
+
+  <main class="scene" id="scene">
+
+    <!-- the flower -->
+    <div class="flower-wrap">
+      <svg id="flower" viewBox="0 0 400 560" preserveAspectRatio="xMidYMid meet"
+           shape-rendering="geometricPrecision" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="stemG" gradientUnits="userSpaceOnUse" x1="0" y1="526" x2="0" y2="170">
+            <stop offset="0"   stop-color="#0a2e1c"/>
+            <stop offset=".55" stop-color="#1f6a3b"/>
+            <stop offset="1"   stop-color="#5fb461"/>
+          </linearGradient>
+
+          <linearGradient id="leafG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0"   stop-color="#0b3322"/>
+            <stop offset=".45" stop-color="#1f6a3d"/>
+            <stop offset="1"   stop-color="#6cbd64"/>
+          </linearGradient>
+
+          <linearGradient id="sepalG" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#14442a"/>
+            <stop offset="1" stop-color="#5aae5b"/>
+          </linearGradient>
+
+          <radialGradient id="groundG">
+            <stop offset="0"   stop-color="#ffb79c" stop-opacity=".42"/>
+            <stop offset=".5"  stop-color="#ff8a94" stop-opacity=".14"/>
+            <stop offset="1"   stop-color="#ff6f8a" stop-opacity="0"/>
+          </radialGradient>
+
+          <radialGradient id="headGlow">
+            <stop offset="0"   stop-color="#ffb3c4" stop-opacity=".36"/>
+            <stop offset=".35" stop-color="#ff7a9e" stop-opacity=".13"/>
+            <stop offset="1"   stop-color="#ff5c8a" stop-opacity="0"/>
+          </radialGradient>
+
+          <linearGradient id="petalShade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0"   stop-color="#1a0008" stop-opacity=".46"/>
+            <stop offset=".30" stop-color="#1a0008" stop-opacity="0"/>
+            <stop offset=".62" stop-color="#ffe1e8" stop-opacity=".11"/>
+            <stop offset="1"   stop-color="#1a0008" stop-opacity=".36"/>
+          </linearGradient>
+        </defs>
+
+        <!-- soft pool of light where the flower grows -->
+        <ellipse id="ground" cx="200" cy="527" rx="92" ry="9" fill="url(#groundG)" opacity="0"/>
+
+        <g id="plant">
+          <g id="stemGroup" fill="none" stroke-linecap="round">
+            <path id="stem"   d="M200 526 C194 452 217 382 206 308 C198 250 205 208 200 176"
+                  stroke="url(#stemG)" stroke-width="5"/>
+            <path id="stemHi" d="M200 526 C194 452 217 382 206 308 C198 250 205 208 200 176"
+                  stroke="#9bdc86" stroke-opacity=".38" stroke-width="1.4" transform="translate(-1.2 0)"/>
+          </g>
+          <g id="leaves"></g>
+          <g id="head" visibility="hidden"></g>
+        </g>
+      </svg>
+    </div>
+
+    <!-- the handwritten message -->
+    <div class="text-wrap">
+      <svg id="message" viewBox="0 0 500 164" preserveAspectRatio="xMidYMid meet"
+           role="img" aria-label="I love you Leen ❤️">
+        <defs>
+          <radialGradient id="penG">
+            <stop offset="0"   stop-color="#fff3dc" stop-opacity=".95"/>
+            <stop offset=".35" stop-color="#ffcf9a" stop-opacity=".5"/>
+            <stop offset="1"   stop-color="#ff9ab0" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="heartG" cx=".38" cy=".3" r=".9">
+            <stop offset="0"   stop-color="#ff7d9c"/>
+            <stop offset=".55" stop-color="#ff2f62"/>
+            <stop offset="1"   stop-color="#b3103c"/>
+          </radialGradient>
+        </defs>
+        <g id="glowLayer" fill="none" stroke-linecap="round" stroke-linejoin="round"></g>
+        <g id="inkLayer"  fill="none" stroke-linecap="round" stroke-linejoin="round"></g>
+        <g id="pen" visibility="hidden">
+          <circle r="11" fill="url(#penG)"/>
+          <circle r="1.7" fill="#fff8ea"/>
+        </g>
+      </svg>
+    </div>
+
+  </main>
+
+  <button class="replay" id="replay" type="button" aria-label="Replay animation" title="Replay">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 1-2.7-6"/>
+      <path d="M20 3.5V8.5h-5"/>
+    </svg>
+  </button>
+
+  <script>
+    /* ==========================================================================
+   For Leen — a flower that grows, blooms, and writes a message.
+   Pure vanilla JS + SVG. One master timeline drives everything, and render()
+   is a pure function of time, so replay is simply "set time back to zero".
+   ========================================================================== */
+(() => {
+  'use strict';
+
+  /* ------------------------------------------------------------------------
+     Helpers
+     ------------------------------------------------------------------------ */
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = (sel) => document.querySelector(sel);
+  const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const range = (t, a, b) => clamp((t - a) / (b - a));
+  const f2 = (n) => n.toFixed(2);
+
+  const ease = {
+    sine:  (t) => 0.5 - 0.5 * Math.cos(Math.PI * t),
+    cubic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+    out:   (t) => 1 - Math.pow(1 - t, 3),
+    quad:  (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+  };
+
+  function mk(tag, attrs, parent) {
+    const n = document.createElementNS(NS, tag);
+    if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  // small deterministic PRNG so the flower is identical on every replay
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ------------------------------------------------------------------------
+     Timeline (seconds)
+     ------------------------------------------------------------------------ */
+  const T = {
+    glow:   0.4,           // ambient glow begins to rise
+    ground: [0.9, 2.4],    // pool of light at the base
+    stem:   [1.8, 6.8],    // stem grows
+    bud:    [5.8, 7.8],    // bud forms at the tip
+    bloom:  [8.0, 15.0],   // petal-by-petal opening
+    text:   15.8           // handwriting begins
+  };
+
+  const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reduced = reduceMQ.matches;
+
+  /* ------------------------------------------------------------------------
+     Elements
+     ------------------------------------------------------------------------ */
+  const body = document.body;
+  const glowEl = $('#glow');
+  const sceneEl = $('#scene');
+  const flowerSvg = $('#flower');
+  const defs = flowerSvg.querySelector('defs');
+  const groundEl = $('#ground');
+  const plant = $('#plant');
+  const stem = $('#stem');
+  const stemHi = $('#stemHi');
+  const leavesG = $('#leaves');
+  const head = $('#head');
+  const replayBtn = $('#replay');
+
+  /* ------------------------------------------------------------------------
+     STEM
+     ------------------------------------------------------------------------ */
+  const STEM_LEN = stem.getTotalLength();
+  [stem, stemHi].forEach((p) => {
+    p.setAttribute('stroke-dasharray', STEM_LEN);
+    p.setAttribute('stroke-dashoffset', STEM_LEN);
+  });
+
+  const stemEase = (t) => ease.sine(range(t, T.stem[0], T.stem[1]));
+
+  // time at which the stem's eased progress reaches a given fraction
+  function timeAtStem(frac) {
+    let lo = T.stem[0], hi = T.stem[1];
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2;
+      if (stemEase(mid) < frac) lo = mid; else hi = mid;
+    }
+    return hi;
+  }
+
+  /* ------------------------------------------------------------------------
+     LEAVES
+     ------------------------------------------------------------------------ */
+  const LEAF_BODY  = 'M0 0 C14 -20 56 -27 92 -2 C58 17 16 16 0 0Z';
+  const LEAF_SHADE = 'M0 0 C30 -6 62 -6 92 -2 C58 17 16 16 0 0Z';
+  const LEAF_VEINS = 'M0 0 C30 -6 62 -6 90 -2 M18 -3 Q28 -10 38 -14 M36 -4 Q46 -11 58 -14 ' +
+                     'M54 -4 Q62 -9 72 -10 M24 -4 Q32 3 40 8 M44 -5 Q54 2 64 6';
+
+  const leafSpecs = [
+    { frac: 0.22, side:  1, size: 1.00, a0: -80, a1: -33 },
+    { frac: 0.40, side: -1, size: 0.90, a0: 260, a1: 211 },
+    { frac: 0.58, side:  1, size: 0.64, a0: -84, a1: -43 }
+  ];
+
+  const leaves = leafSpecs.map((s, i) => {
+    const pt = stem.getPointAtLength(STEM_LEN * s.frac);
+    const g = mk('g', { visibility: 'hidden' }, leavesG);
+    mk('path', { d: LEAF_BODY, fill: 'url(#leafG)' }, g);
+    mk('path', { d: LEAF_SHADE, fill: 'rgba(0,22,10,.34)' }, g);
+    mk('path', { d: LEAF_VEINS, fill: 'none', stroke: 'rgba(196,240,170,.42)',
+                 'stroke-width': 0.9, 'stroke-linecap': 'round' }, g);
+    return {
+      g, x: pt.x - 0.5 * s.side, y: pt.y, flip: s.side === 1 ? 1 : -1,
+      size: s.size, a0: s.a0, a1: s.a1,
+      t0: timeAtStem(s.frac), dur: 2.6,
+      fl: 2.2 + i * 0.5, fw: 0.9 + i * 0.23, fp: i * 1.9
+    };
+  });
+
+  /* ------------------------------------------------------------------------
+     FLOWER HEAD — layered petals, stamens, sepals
+     Everything is drawn with its base at (0,0) pointing up; the head group is
+     translated to the tip of the stem.
+     ------------------------------------------------------------------------ */
+  const rnd = mulberry32(14);
+
+  const glowC = mk('circle', { r: 190, fill: 'url(#headGlow)', opacity: 0 }, head);
+  const petalLayer   = mk('g', null, head);
+  const stamenLayer  = mk('g', null, head);
+  const frontLayer   = mk('g', null, head);
+  const calyxLayer   = mk('g', null, head);
+
+  function petalPath(L, W) {
+    const w = W / 2;
+    return `M0 0 C${-w * 0.5} ${-L * 0.12} ${-w * 1.12} ${-L * 0.52} ${-w * 0.6} ${-L * 0.86} ` +
+           `C${-w * 0.34} ${-L * 1.0} ${w * 0.34} ${-L * 1.0} ${w * 0.6} ${-L * 0.86} ` +
+           `C${w * 1.12} ${-L * 0.52} ${w * 0.5} ${-L * 0.12} 0 0Z`;
+  }
+  function veinPath(L, W) {
+    const w = W / 2;
+    return `M0 ${-L * 0.08} C${-w * 0.04} ${-L * 0.35} ${w * 0.05} ${-L * 0.6} 0 ${-L * 0.82} ` +
+           `M${-w * 0.02} ${-L * 0.3} C${-w * 0.3} ${-L * 0.42} ${-w * 0.42} ${-L * 0.55} ${-w * 0.42} ${-L * 0.7} ` +
+           `M${w * 0.02} ${-L * 0.3} C${w * 0.3} ${-L * 0.42} ${w * 0.42} ${-L * 0.55} ${w * 0.42} ${-L * 0.7}`;
+  }
+
+  // outermost layers first; F = the two front petals that wrap the bud
+  const LAYERS = [
+    { id: 'F',  front: true, L: 98,  W: 66, angles: [-38, 38], rank: 0,
+      stops: [[0, '#3d0a1f'], [0.3, '#9a2049'], [0.7, '#d04a77'], [1, '#f7a9bf']] },
+    { id: 'L0', L: 124, W: 72, angles: [-78, -52, -26, 0, 26, 52, 78], rank: 0.6,
+      stops: [[0, '#2a0614'], [0.35, '#6e1233'], [0.75, '#b8355f'], [1, '#e58aa6']] },
+    { id: 'L1', L: 108, W: 68, angles: [-65, -39, -13, 13, 39, 65], rank: 2,
+      stops: [[0, '#3a0a1e'], [0.3, '#8a1b45'], [0.72, '#cf4a76'], [1, '#f4a0b8']] },
+    { id: 'L2', L: 92,  W: 62, angles: [-52, -26, 0, 26, 52], rank: 3,
+      stops: [[0, '#e0a46a'], [0.14, '#9c2150'], [0.55, '#d8507c'], [1, '#ffb3c6']] },
+    { id: 'L3', L: 78,  W: 56, angles: [-38, -13, 13, 38], rank: 4,
+      stops: [[0, '#f0b774'], [0.18, '#b52a5a'], [0.6, '#e8648e'], [1, '#ffc8d6']] },
+    { id: 'L4', L: 62,  W: 48, angles: [-22, 0, 22], rank: 5,
+      stops: [[0, '#f7c783'], [0.22, '#cc3a6a'], [0.62, '#f27ea0'], [1, '#ffdbe4']] }
+  ];
+
+  const petals = [];
+  LAYERS.forEach((layer) => {
+    const gid = 'pg' + layer.id;
+    const grad = mk('linearGradient', { id: gid, x1: 0, y1: 1, x2: 0, y2: 0 }, defs);
+    layer.stops.forEach(([o, c]) => mk('stop', { offset: o, 'stop-color': c }, grad));
+
+    layer.angles.forEach((a) => {
+      const L = layer.L * (1 + (rnd() - 0.5) * 0.07);
+      const W = layer.W * (1 + (rnd() - 0.5) * 0.08);
+      const g = mk('g', null, layer.front ? frontLayer : petalLayer);
+      const base = mk('path', {
+        d: petalPath(L, W), fill: `url(#${gid})`,
+        stroke: 'rgba(16,0,8,.42)', 'stroke-width': 3, 'stroke-linejoin': 'round'
+      }, g);
+      base.setAttribute('style', 'paint-order:stroke');
+      mk('path', { d: petalPath(L, W), fill: 'url(#petalShade)' }, g);
+      mk('path', { d: veinPath(L, W), fill: 'none', stroke: 'rgba(255,232,238,.15)',
+                   'stroke-width': 0.8, 'stroke-linecap': 'round' }, g);
+
+      petals.push({
+        g,
+        aOpen: a + (rnd() - 0.5) * 4,
+        aClosed: a * 0.13,
+        order: layer.rank + (1 - Math.abs(a) / 80) * 0.9 + rnd() * 0.18, // outside-in, sides first
+        fa: (0.7 + rnd() * 1.5) * (0.4 + Math.abs(a) / 90),
+        fw: 0.8 + rnd() * 0.7,
+        fp: rnd() * 6.28
+      });
+    });
+  });
+  const maxOrder = Math.max(...petals.map((p) => p.order));
+  petals.forEach((p) => { p.start = (p.order / maxOrder) * 0.56; });
+
+  // stamens — golden filaments that appear as the flower finishes opening
+  const stamens = [];
+  for (let i = 0; i < 13; i++) {
+    const a = lerp(-36, 36, i / 12) + (rnd() - 0.5) * 5;
+    const len = 68 + rnd() * 16 - Math.abs(a) * 0.3;
+    const curl = (rnd() - 0.5) * 9;
+    const g = mk('g', null, stamenLayer);
+    mk('path', { d: `M0 -6 Q${f2(curl)} ${f2(-len * 0.55)} 0 ${f2(-len)}`, fill: 'none',
+                 stroke: 'rgba(255,226,165,.78)', 'stroke-width': 0.9, 'stroke-linecap': 'round' }, g);
+    mk('circle', { cx: 0, cy: -len, r: 2.3, fill: '#ffd98a' }, g);
+    mk('circle', { cx: 0, cy: -len, r: 5,   fill: 'rgba(255,214,140,.25)' }, g);
+    stamens.push({ g, a, fw: 1 + rnd(), fp: rnd() * 6.28 });
+  }
+
+  // calyx + sepals (they hug the bud, then fold back as it opens)
+  mk('ellipse', { cx: 0, cy: 3, rx: 8.5, ry: 7, fill: 'url(#sepalG)' }, calyxLayer);
+  const SEPAL = 'M0 0 C-8 -8 -7 -24 0 -34 C7 -24 8 -8 0 0Z';
+  const sepals = [-1, 1, -1, 1].map((s, i) => {
+    const g = mk('g', null, calyxLayer);
+    mk('path', { d: SEPAL, fill: 'url(#sepalG)', stroke: 'rgba(8,30,16,.5)', 'stroke-width': 0.6 }, g);
+    return { g, aClosed: s * (i < 2 ? 7 : 19), aOpen: s * (i < 2 ? 120 : 150) };
+  });
+
+  /* ------------------------------------------------------------------------
+     HANDWRITTEN MESSAGE — single-line pen strokes, drawn with stroke-dashoffset
+     Glyph box: x 0..w, y 0..60 (baseline 60). Slight italic skew is applied.
+     ------------------------------------------------------------------------ */
+  const GLYPHS = {
+    I: { w: 34, s: [
+      'M17 2 C14 20 13 40 15 58 C15 62 12 63 9 61',
+      'M7 3 C13 0 21 0 27 3',
+      'M6 59 C12 62 22 62 28 59'
+    ] },
+    L: { w: 46, s: [
+      'M10 6 C14 -1 20 -1 22 2 C18 20 14 40 15 57 C24 62 36 60 44 53'
+    ] },
+    O: { w: 52, s: [
+      'M30 3 C12 0 2 24 5 42 C8 58 28 63 40 46 C50 30 46 8 30 3 C26 2 22 3 20 5'
+    ] },
+    V: { w: 54, s: [
+      'M4 3 C10 22 18 44 24 59 C30 40 38 20 50 1'
+    ] },
+    E: { w: 46, s: [
+      'M40 9 C34 1 18 -1 11 12 C5 24 18 29 26 29 C14 28 4 34 6 46 C9 60 30 63 42 51'
+    ] },
+    Y: { w: 54, s: [
+      'M3 3 C8 20 16 30 26 34',
+      'M50 1 C46 22 34 44 22 60 C16 68 6 66 8 58'
+    ] },
+    U: { w: 58, s: [
+      'M5 3 C2 28 6 60 25 60 C40 60 45 36 47 3',
+      'M47 3 C47 22 48 46 54 59'
+    ] },
+    N: { w: 52, s: [
+      'M5 59 C7 40 9 20 9 3 C18 22 32 44 42 59 C44 40 46 20 48 2'
+    ] },
+    HEART: { w: 60, heart: true, s: [
+      'M30 56 C6 38 -2 16 12 6 C21 0 30 7 30 15 C30 7 39 0 48 6 C62 16 54 38 30 56Z'
+    ] }
+  };
+  const LINES = [
+    ['I', ' ', 'L', 'O', 'V', 'E', ' ', 'Y', 'O', 'U'],
+    ['L', 'E', 'E', 'N', ' ', 'HEART']
+  ];
+
+  const glowLayer = $('#glowLayer');
+  const inkLayer = $('#inkLayer');
+  const penEl = $('#pen');
+  const msgSvg = $('#message');
+
+  const MSG = { scale: 0.92, skew: Math.tan((9 * Math.PI) / 180), gap: 6, space: 24, lineTop: [8, 92], vbW: 500 };
+  const strokes = [];
+  let heartInk = null;
+  let heartStroke = null;
+  let textEnd = 0;
+
+  (function buildMessage() {
+    const S = MSG.scale;
+    const speed = 300;       // pen speed (svg units / second)
+    let cursor = 0;
+    const total = LINES.reduce((n, l) => n + l.filter((c) => c !== ' ').length, 0);
+    let glyphIndex = 0;
+
+    LINES.forEach((line, li) => {
+      // line width for centring
+      let width = 0;
+      line.forEach((ch, i) => {
+        width += ch === ' ' ? MSG.space * S : GLYPHS[ch].w * S;
+        if (i < line.length - 1 && ch !== ' ' && line[i + 1] !== ' ') width += MSG.gap * S;
+      });
+      let x = (MSG.vbW - width) / 2 + MSG.skew * 30 * S;
+      const y = MSG.lineTop[li];
+
+      line.forEach((ch, i) => {
+        if (ch === ' ') { x += MSG.space * S; cursor += 0.16; return; }
+        const gl = GLYPHS[ch];
+        const k = glyphIndex / (total - 1);
+        // champagne → blush as the sentence travels
+        const col = `rgb(${Math.round(lerp(255, 255, k))},${Math.round(lerp(228, 196, k))},${Math.round(lerp(176, 212, k))})`;
+        const skew = gl.heart ? 0 : -9;
+        const tf = `translate(${f2(x)} ${y}) scale(${S}) skewX(${skew})`;
+        const gGlow = mk('g', { transform: tf }, glowLayer);
+        const gInk = mk('g', { transform: tf }, inkLayer);
+
+        if (gl.heart) { gInk.setAttribute('class', 'heart'); gGlow.setAttribute('class', 'heart-halo'); }
+
+        gl.s.forEach((d) => {
+          const glow = mk('path', { d, stroke: gl.heart ? '#ff4d7d' : '#ff8fb0', 'stroke-width': 11, opacity: 0 }, gGlow);
+          glow.style.opacity = 0;
+          const ink = mk('path', {
+            d, stroke: gl.heart ? '#ff5c88' : col, 'stroke-width': gl.heart ? 3.4 : 3.9
+          }, gInk);
+          const len = ink.getTotalLength();
+          [glow, ink].forEach((p) => {
+            p.setAttribute('stroke-dasharray', len + 1);
+            p.setAttribute('stroke-dashoffset', len + 1);
+          });
+          const dur = Math.max(0.24, (len * S) / (gl.heart ? 150 : speed));
+          const st = {
+            glow, ink, len: len + 1, t0: cursor, dur, ch,
+            x, y, S, skew, last: -1
+          };
+          strokes.push(st);
+          if (gl.heart) { heartInk = ink; heartStroke = st; }
+          cursor += dur + 0.04;
+        });
+
+        x += gl.w * S;
+        if (i < line.length - 1 && line[i + 1] !== ' ') x += MSG.gap * S;
+        cursor += 0.06;
+        glyphIndex++;
+      });
+      cursor += 0.3;
+    });
+
+    textEnd = cursor;
+    heartInk.setAttribute('fill', 'url(#heartG)');
+    heartInk.setAttribute('fill-opacity', 0);
+  })();
+
+  const HEART_FILL_AT = heartStroke.t0 + heartStroke.dur - 0.1;   // relative to text start
+  const END = T.text + HEART_FILL_AT + 1.6;                        // everything settled
+
+  /* ------------------------------------------------------------------------
+     Particles — delicate glowing motes (canvas, pre-rendered sprites)
+     ------------------------------------------------------------------------ */
+  const canvas = $('#motes');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+  let motes = [];
+
+  const sprites = [[255, 214, 150], [255, 150, 182], [255, 236, 222]].map(([r, g, b]) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    gr.addColorStop(0.25, `rgba(${r},${g},${b},.45)`);
+    gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    x.fillStyle = gr;
+    x.fillRect(0, 0, 64, 64);
+    return c;
+  });
+
+  function newMote(initial) {
+    return {
+      x: Math.random() * W,
+      y: initial ? Math.random() * H : H + 12,
+      r: 0.7 + Math.random() * 1.9,
+      vy: 5 + Math.random() * 13,
+      sw: 6 + Math.random() * 18,
+      ph: Math.random() * 6.28,
+      tw: 0.4 + Math.random() * 1.2,
+      a: 0.28 + Math.random() * 0.55,
+      s: sprites[(Math.random() * sprites.length) | 0]
+    };
+  }
+
+  function resizeCanvas() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const count = clamp(Math.round((W * H) / 20000), 26, 68);
+    motes = Array.from({ length: count }, () => newMote(true));
+  }
+
+  function drawMotes(t, dt, animate) {
+    ctx.clearRect(0, 0, W, H);
+    const intro = reduced ? 0.75 : 0.12 + 0.88 * ease.sine(range(t, 2.0, 13));
+    const appear = reduced ? 1 : range(t, 1.4, 4.5);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const m of motes) {
+      if (animate) {
+        m.y -= m.vy * dt;
+        if (m.y < -14) Object.assign(m, newMote(false));
+      }
+      const x = m.x + (animate ? Math.sin(t * 0.4 + m.ph) * m.sw : 0);
+      const edge = Math.min(1, m.y / (H * 0.18), (H - m.y) / (H * 0.1));
+      const tw = animate ? 0.55 + 0.45 * Math.sin(t * m.tw + m.ph) : 0.8;
+      const a = m.a * tw * intro * appear * clamp(edge);
+      if (a < 0.01) continue;
+      ctx.globalAlpha = a;
+      const s = m.r * 7;
+      ctx.drawImage(m.s, x - s, m.y - s, s * 2, s * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* ------------------------------------------------------------------------
+     Layout sync — put the ambient glow behind the bloom
+     ------------------------------------------------------------------------ */
+  function syncGlowAnchor() {
+    const m = flowerSvg.getScreenCTM();
+    if (!m) return;
+    const pt = flowerSvg.createSVGPoint();
+    pt.x = 200; pt.y = 150;
+    const p = pt.matrixTransform(m);
+    const root = document.documentElement.style;
+    root.setProperty('--head-x', `${p.x.toFixed(1)}px`);
+    root.setProperty('--head-y', `${p.y.toFixed(1)}px`);
+  }
+
+  /* ------------------------------------------------------------------------
+     RENDER — pure function of time
+     ------------------------------------------------------------------------ */
+  let time = 0;
+  let lastHeadVis = null;
+
+  function render(t, dt) {
+    const sTime = t - T.text; // text-relative time
+
+    /* background */
+    glowEl.classList.toggle('on', reduced || t >= T.glow);
+    groundEl.setAttribute('opacity', f2(ease.sine(range(t, T.ground[0], T.ground[1]))));
+
+    /* wind */
+    const windAmp = reduced ? 0 : 0.35 + 0.65 * range(t, 3, 12);
+    const sway = windAmp * (Math.sin(t * 0.55) * 0.9 + Math.sin(t * 1.05 + 1.3) * 0.4 + 0.3);
+    plant.setAttribute('transform', `rotate(${f2(sway)} 200 526)`);
+
+    /* stem */
+    const sp = stemEase(t);
+    const off = STEM_LEN * (1 - sp);
+    stem.setAttribute('stroke-dashoffset', off);
+    stemHi.setAttribute('stroke-dashoffset', off);
+    const stemVis = sp > 0.002 ? 'visible' : 'hidden';
+    stem.setAttribute('visibility', stemVis);
+    stemHi.setAttribute('visibility', stemVis);
+
+    /* leaves */
+    for (const l of leaves) {
+      const k = range(t, l.t0, l.t0 + l.dur);
+      if (k <= 0) { l.g.setAttribute('visibility', 'hidden'); continue; }
+      const sc = ease.out(k) * l.size;
+      const ang = lerp(l.a0, l.a1, ease.sine(k)) + windAmp * l.fl * Math.sin(t * l.fw + l.fp) * k;
+      l.g.setAttribute('visibility', 'visible');
+      l.g.setAttribute('transform',
+        `translate(${f2(l.x)} ${f2(l.y)}) rotate(${f2(ang)}) scale(${sc.toFixed(3)} ${(sc * l.flip).toFixed(3)})`);
+    }
+
+    /* bud → bloom */
+    const budP = ease.out(range(t, T.bud[0], T.bud[1]));
+    const bloomP = range(t, T.bloom[0], T.bloom[1]);
+    const bloomE = ease.sine(bloomP);
+    const hs = budP * 0.72 + 0.28 * bloomE;
+
+    const vis = hs > 0.004 ? 'visible' : 'hidden';
+    if (vis !== lastHeadVis) { head.setAttribute('visibility', vis); lastHeadVis = vis; }
+
+    if (hs > 0.004) {
+      const l = STEM_LEN * sp;
+      const p1 = stem.getPointAtLength(l);
+      const p0 = stem.getPointAtLength(Math.max(0, l - 4));
+      const tan = (Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180) / Math.PI + 90;
+      const headSway = windAmp * (Math.sin(t * 0.9 + 0.6) * 1.6 + Math.sin(t * 1.7) * 0.6);
+      head.setAttribute('transform',
+        `translate(${f2(p1.x)} ${f2(p1.y)}) rotate(${f2(tan * 0.6 + headSway)}) scale(${hs.toFixed(3)})`);
+
+      const pulse = 0.92 + 0.08 * Math.sin(t * 1.3);
+      glowC.setAttribute('opacity', f2((0.1 * budP + 0.9 * bloomE) * pulse));
+
+      for (const p of petals) {
+        const q = range(bloomP, p.start, p.start + 0.44);
+        const e = ease.sine(q);
+        const flutter = windAmp * p.fa * Math.sin(t * p.fw + p.fp) * e;
+        const a = lerp(p.aClosed, p.aOpen, e) + flutter;
+        const sx = lerp(0.55, 1, e);
+        const sy = lerp(0.8, 1, e);
+        p.g.setAttribute('transform', `rotate(${f2(a)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)})`);
+      }
+
+      const se = ease.out(range(bloomP, 0.6, 1));
+      for (const s of stamens) {
+        const a = s.a * (0.45 + 0.55 * se) + windAmp * Math.sin(t * s.fw + s.fp) * 1.6 * se;
+        const k = Math.max(se, 0.0001);
+        s.g.setAttribute('transform', `rotate(${f2(a)}) scale(${k.toFixed(3)})`);
+        s.g.setAttribute('opacity', f2(se));
+      }
+
+      const sepE = ease.sine(range(bloomP, 0.04, 0.5));
+      for (const s of sepals) {
+        s.g.setAttribute('transform', `rotate(${f2(lerp(s.aClosed, s.aOpen, sepE))})`);
+      }
+    }
+
+    /* message */
+    renderText(sTime);
+
+    /* states */
+    const done = reduced || t >= END;
+    body.classList.toggle('is-done', done);
+    body.classList.toggle('is-alive', done);
+
+    drawMotes(t, dt, !reduced);
+  }
+
+  function renderText(tt) {
+    let active = null;
+    for (const s of strokes) {
+      const p = clamp((tt - s.t0) / s.dur);
+      if (p > 0) active = s;
+      if (p === s.last) continue;
+      s.last = p;
+      const e = ease.quad(p);
+      const o = s.len * (1 - e);
+      s.ink.setAttribute('stroke-dashoffset', o);
+      s.glow.setAttribute('stroke-dashoffset', o);
+      s.ink.style.opacity = p > 0 ? 1 : 0;
+      s.glow.style.opacity = p > 0 ? 0.17 : 0;
+    }
+
+    // heart fills in once its outline is drawn
+    heartInk.setAttribute('fill-opacity', f2(ease.sine(range(tt, HEART_FILL_AT, HEART_FILL_AT + 1.2))));
+
+    // glowing pen tip follows the stroke being written
+    if (active && tt < textEnd + 1) {
+      const p = clamp((tt - active.t0) / active.dur);
+      const e = ease.quad(p);
+      const pt = active.ink.getPointAtLength(Math.min(active.len - 1, active.len * e));
+      const px = active.x + active.S * (pt.x + Math.tan((active.skew * Math.PI) / 180) * pt.y);
+      const py = active.y + active.S * pt.y;
+      const fade = 1 - range(tt, textEnd - 0.2, textEnd + 0.9);
+      penEl.setAttribute('transform', `translate(${f2(px)} ${f2(py)})`);
+      penEl.setAttribute('opacity', f2(fade));
+      penEl.setAttribute('visibility', fade > 0.01 ? 'visible' : 'hidden');
+    } else {
+      penEl.setAttribute('visibility', 'hidden');
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     Loop / control
+     ------------------------------------------------------------------------ */
+  let raf = 0;
+  let lastTs = 0;
+
+  function frame(ts) {
+    raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (ts - lastTs) / 1000 || 0);  // clamp: a hidden tab pauses the story
+    lastTs = ts;
+    time += dt;
+    render(time, dt);
+  }
+
+  function start() {
+    cancelAnimationFrame(raf);
+    if (reduced) {
+      time = END;
+      render(END, 0);
+      return;
+    }
+    time = 0;
+    lastTs = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function replay() {
+    const spin = replayBtn.querySelector('svg');
+    spin.classList.remove('spin');
+    void spin.getBoundingClientRect();
+    spin.classList.add('spin');
+
+    body.classList.remove('is-done', 'is-alive');
+    glowEl.classList.add('reset');
+    glowEl.classList.remove('on');
+    void glowEl.offsetWidth;
+    glowEl.classList.remove('reset');
+    strokes.forEach((s) => { s.last = -1; });
+
+    if (reduced) {
+      // gentle cross-fade instead of motion
+      sceneEl.classList.add('fading');
+      void sceneEl.offsetWidth;
+      sceneEl.classList.remove('fading');
+      start();
+      return;
+    }
+    start();
+  }
+
+  replayBtn.addEventListener('click', replay);
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    syncGlowAnchor();
+    if (reduced) render(END, 0);
+  });
+
+  const onMotionChange = (e) => { reduced = e.matches; start(); };
+  if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', onMotionChange);
+  else if (reduceMQ.addListener) reduceMQ.addListener(onMotionChange);
+
+  resizeCanvas();
+  syncGlowAnchor();
+  start();
+})();
+
+  </script>
+</body>
+</html>
